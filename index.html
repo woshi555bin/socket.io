@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+  <link rel="stylesheet" href="/bootstrap/dist/css/bootstrap.css">
+  <style>
+    .user{
+      color:blue;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="row">
+    <div class="col-md-12">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="text-center">很高兴为您服务</h3>
+          <button onclick="join('green')" class="btn btn-success">用户房间1</button>
+          <button onclick="join('red')"  class="btn btn-danger">用户房间2</button>
+        </div>
+        <div class="panel-body">
+          <ul onclick="handleClick(event)" class="list-group" id="messages">
+          </ul>
+        </div>
+        <div class="panel-footer">
+          <form>
+            <div class="form-group">
+              <label for="content">内容</label>
+              <input id="content" type="text" class="form-control">
+            </div>
+            <div class="form-group">
+              <button type="button" onclick="send()" class="btn btn-primary">发言</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  var messagesUl = document.querySelector('#messages');
+  var contentInput = document.querySelector('#content');
+  var socket = io("/");
+  socket.on('connect',function(){
+      socket.emit('getAllMessages');
+  });
+  function format(msgObj){
+      return `<span class="user">${msgObj.username}</span>:${msgObj.content} <button class="btn btn-danger" data-id="${msgObj._id}">删除</button> <span class="pull-right">${msgObj.createAt}</span>`;
+  }
+  socket.on('message',function(msgObj){
+    var li = document.createElement('li');
+    li.innerHTML = format(msgObj);
+    li.className = 'list-group-item';
+    messagesUl.appendChild(li);
+  });
+  //当点击按钮的时候执行此方法
+  function send(){
+    var content = contentInput.value;
+    //把此消息发送给服务器
+    socket.send(content);// emit('message',content);
+  }
+  socket.on('allMessages',function(messages){
+    var html='';
+    messages.forEach(function(msgObj){
+      html += `<li id="msg_${msgObj._id}" class="list-group-item">${format(msgObj)}</li>`;
+    });
+    messagesUl.innerHTML = html;
+  });
+  function handleClick(event){
+    if(event.target.className == 'user'){
+      var username = event.target.innerText;
+      contentInput.value = `@${username} `;
+    }else if(event.target.className == 'btn btn-danger'){
+      var id = event.target.dataset.id;
+      console.log(id);
+      socket.emit('delete',id);
+    }
+  }
+  function join(roomName){
+    socket.emit('join',roomName);
+  }
+  socket.on('deleted',function(id){
+    var deleteLi = document.querySelector(`#msg_${id}`);
+    deleteLi.parentNode.removeChild(deleteLi);
+  });
+</script>
+</body>
+</html>
